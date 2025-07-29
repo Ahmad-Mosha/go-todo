@@ -10,7 +10,6 @@ import (
 
 var csvStorage = storage.NewCSVStorage("todos.csv")
 
-
 func init() {
 	rootCmd.AddCommand(addCmd)
 }
@@ -18,8 +17,8 @@ func init() {
 var addCmd = &cobra.Command{
 	Use:   "add [task description]",
 	Short: "add task",
-	Args: cobra.MaximumNArgs(1),
-	Run:   func(cmd *cobra.Command, args []string) {
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
 		description := strings.Join(args, " ")
 
 		task, err := csvStorage.AddTask(description)

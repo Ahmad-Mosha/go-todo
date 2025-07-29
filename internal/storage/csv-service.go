@@ -41,6 +41,35 @@ func (s *CSVStorage) AddTask(description string) (*models.Task, error) {
 	return task, nil
 }
 
+func (s *CSVStorage) ListTask() ([]*models.Task, error) {
+	if _, err := os.Stat(s.filename); os.IsNotExist(err) {
+		return []*models.Task{}, nil
+	}
+	file, err := os.Open(s.filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	// Create CSV reader
+	reader := csv.NewReader(file)
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CSV: %w", err)
+	}
+
+	tasks := make([]*models.Task, 0, len(records))
+	for _, record := range records {
+		task, err := models.FromCSVRecord(record)
+		if err != nil {
+			continue
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
 func (s *CSVStorage) getNextID() (int, error) {
 	if _, err := os.Stat(s.filename); os.IsNotExist(err) {
 		return 1, nil
