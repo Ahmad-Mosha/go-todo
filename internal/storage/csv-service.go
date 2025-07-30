@@ -41,6 +41,63 @@ func (s *CSVStorage) AddTask(description string) (*models.Task, error) {
 	return task, nil
 }
 
+func (s *CSVStorage) UpdateTask(id int, newDescription *string, completed *bool) (*models.Task, error) {
+	tasks, err := s.ListTask()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read tasks: %w", err)
+	}
+
+	// Find and update the task
+	var updatedTask *models.Task
+	found := false
+	for _, task := range tasks {
+		if task.ID == id {
+			if newDescription != nil {
+				task.Description = *newDescription
+			}
+			if completed != nil {
+				task.Completed = *completed
+			}
+			updatedTask = task
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, fmt.Errorf("task with ID %d not found", id)
+	}
+
+	// Rewrite the entire file with updated tasks
+	err = s.rewriteAllTasks(tasks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save updated task: %w", err)
+	}
+
+	return updatedTask, nil
+}
+
+func (s *CSVStorage) DeleteTask(id int) error {
+	tasks, err := s.ListTask()
+	if err != nil {
+		return fmt.Errorf("failed to read tasks: %w", err)
+	}
+
+	var filteredTasks []*models.Task
+	found := false
+	for _, task := range tasks {
+		if task.ID != id {
+			filteredTasks = append(filteredTasks, task)
+		} else {
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf("task with ID  %d not found", id)
+	}
+	return s.rewriteAllTasks(filteredTasks)
+}
+
 func (s *CSVStorage) ListTask() ([]*models.Task, error) {
 	if _, err := os.Stat(s.filename); os.IsNotExist(err) {
 		return []*models.Task{}, nil
@@ -68,6 +125,29 @@ func (s *CSVStorage) ListTask() ([]*models.Task, error) {
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
+}
+
+func (s *CSVStorage) rewriteAllTasks(tasks []*models.Task) error {
+	// Create/truncate the file
+	file, err := os.Create(s.filename)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// Write all tasks
+	for _, task := range tasks {
+		record := task.ToCSVRecord()
+		err := writer.Write(record)
+		if err != nil {
+			return fmt.Errorf("failed to write record: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *CSVStorage) getNextID() (int, error) {
